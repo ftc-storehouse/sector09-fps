@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SECTOR-09 // BLACKOUT PROTOCOL — Tactical FPS</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23081018'/><circle cx='16' cy='16' r='9' stroke='%23ffae38' stroke-width='3' fill='none'/><circle cx='16' cy='16' r='2.5' fill='%23ff3844'/></svg>" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Diegetic Tactical Helmet Visor Overlay -->
+  <div id="hud" class="hidden">
+    <div class="visor-vignette"></div>
+    <div id="damage-overlay"></div>
+    <div id="suppression-overlay"></div>
+    <div id="flash-overlay"></div>
+
+    <!-- Top Compass & Tactical Telemetry -->
+    <div class="hud-top">
+      <div class="telemetry-left">
+        <span class="tag-rec">● REC</span>
+        <span id="hud-clock">23:47:19:04</span>
+        <span class="sep">|</span>
+        <span>CAM-04 // HELMET-NVG-OFF</span>
+      </div>
+      <div class="compass-wrap">
+        <div id="compass-strip">N · · 030 · · NE · · 060 · · E · · 120 · · SE · · 150 · · S · · 210 · · SW · · 240 · · W · · 300 · · NW · · 330 · · N</div>
+        <div class="compass-caret">▼</div>
+      </div>
+      <div class="telemetry-right">
+        <span id="hud-fps">60 FPS</span>
+        <span class="sep">|</span>
+        <span id="hud-quality">QUALITY: ULTRA</span>
+      </div>
+    </div>
+
+    <!-- Mission Objective Tracker -->
+    <div class="objective-box">
+      <div class="obj-header">DIRECTIVE // SECTOR-09 CRYO VAULT</div>
+      <div id="obj-title" class="obj-main">肃清前厅防卫合成体并突破封锁</div>
+      <div id="obj-sub" class="obj-sub">敌方剩余单位: <span id="obj-count">0</span> | 阶段: <span id="obj-wave">1 / 3</span></div>
+    </div>
+
+    <!-- Dynamic Crosshair & Hitmarkers -->
+    <div id="crosshair">
+      <div class="ch-line ch-top"></div>
+      <div class="ch-line ch-bottom"></div>
+      <div class="ch-line ch-left"></div>
+      <div class="ch-line ch-right"></div>
+      <div class="ch-dot"></div>
+    </div>
+
+    <div id="hitmarker" class="hidden">
+      <span class="hm-1"></span>
+      <span class="hm-2"></span>
+      <span class="hm-3"></span>
+      <span class="hm-4"></span>
+    </div>
+
+    <div id="kill-feed"></div>
+    <div id="interact-prompt" class="hidden">[E / F] 交互</div>
+    <div id="low-ammo-warn" class="hidden">LOW AMMO // 按 [R] 换弹</div>
+
+    <!-- Bottom Left: Armor / Biometrics / Stance -->
+    <div class="hud-bottom-left">
+      <div class="stance-row">
+        <span id="stance-badge" class="badge">STAND</span>
+        <span id="lean-badge" class="badge dim">CENTER</span>
+        <span id="light-badge" class="badge active">TAC-LIGHT [T]</span>
+        <span id="laser-badge" class="badge active">PEQ-15 LASER</span>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label"><span>BALLISTIC PLATE</span><span id="armor-val">100%</span></div>
+        <div class="bar-track armor-track"><div id="armor-fill" class="bar-fill armor-fill"></div></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label"><span>VITALS // BPM <b id="bpm-val">78</b></span><span id="hp-val">100</span></div>
+        <div class="bar-track"><div id="hp-fill" class="bar-fill hp-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- Bottom Right: Weapon & Ballistics -->
+    <div class="hud-bottom-right">
+      <div class="weapon-title">MCX-SPEAR // 5.56×45MM NATO</div>
+      <div class="weapon-attachments">
+        <span id="sup-badge" class="att-chip">MUZZLE BRAKE [V]</span>
+        <span id="mode-badge" class="att-chip active">AUTO [B]</span>
+        <span class="att-chip">[F] 检视武器</span>
+      </div>
+      <div class="ammo-readout">
+        <span id="ammo-mag" class="ammo-current">31</span>
+        <span class="ammo-slash">/</span>
+        <span id="ammo-reserve" class="ammo-reserve">150</span>
+      </div>
+      <div class="controls-mini">
+        <span>[WASD] 移动</span>
+        <span>[SHIFT] 冲刺</span>
+        <span>[C] 蹲/滑铲</span>
+        <span>[Q/E] 侧身探头</span>
+        <span>[RMB] 全息瞄准</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Start / Pause Tactical Briefing Screen -->
+  <div id="menu-screen">
+    <div class="menu-backdrop"></div>
+    <div class="menu-panel">
+      <div class="menu-kicker">BLACKOUT PROTOCOL // VERTICAL SLICE BUILD</div>
+      <h1>SECTOR-09 : CRYO BREACH</h1>
+      <p class="menu-desc">
+        地下低温收容与核心服务器设施失联。作为先遣特勤干员切入 B3 层，利用掩体、战术侧身探头与破坏环境肃清 AEGIS 装甲防卫部队，夺回主控终端。
+      </p>
+
+      <div class="feature-grid">
+        <div class="feat-card">
+          <div class="feat-title">枪械与战术动作</div>
+          <div class="feat-body">全息准星视差 · 机匣抛壳与空仓挂机 · 枪管过热发红冒烟 · 侧倾战术据枪(Q/E) · 冲刺滑铲(Shift+C) · 消音器快拆(V) · 检视(F)</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-title">次世代渲染与物理破坏</div>
+          <div class="feat-body">实时积水镜面反射 · ACES电影级色调 · 自适应锐化(CAS) · 黄铜弹壳物理弹跳 · 可打爆灭火器/蒸汽管/燃料罐/防弹玻璃/吊灯</div>
+        </div>
+      </div>
+
+      <div class="keybind-bar">
+        <span><b>LMB</b> 射击</span>
+        <span><b>RMB</b> 全息瞄准</span>
+        <span><b>R</b> 战术换弹</span>
+        <span><b>Q / E</b> 左右探头(侧倾据枪)</span>
+        <span><b>Shift + C</b> 战术滑铲</span>
+        <span><b>V</b> 拆装消音器</span>
+        <span><b>B</b> 单发/全自动</span>
+        <span><b>T</b> 战术强光手电</span>
+        <span><b>F</b> 武器检视 / 终端交互</span>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btn-start" class="btn-primary">部署切入行动 // DEPLOY</button>
+        <div class="quality-selector">
+          <span>画质预设:</span>
+          <button data-q="ultra" class="q-btn active">ULTRA (全反射+高精阴影)</button>
+          <button data-q="high" class="q-btn">HIGH</button>
+          <button data-q="perf" class="q-btn">PERFORMANCE</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mission Complete / Game Over Debrief -->
+  <div id="debrief-screen" class="hidden">
+    <div class="menu-panel debrief-panel">
+      <div id="debrief-kicker" class="menu-kicker">AFTER ACTION REPORT</div>
+      <h1 id="debrief-title">SECTOR SECURED</h1>
+      <div class="stats-grid">
+        <div class="stat-item"><span class="stat-lbl">行动用时</span><span id="stat-time" class="stat-val">00:00</span></div>
+        <div class="stat-item"><span class="stat-lbl">歼灭敌军</span><span id="stat-kills" class="stat-val">0</span></div>
+        <div class="stat-item"><span class="stat-lbl">爆头率</span><span id="stat-hs" class="stat-val">0%</span></div>
+        <div class="stat-item"><span class="stat-lbl">命中率</span><span id="stat-acc" class="stat-val">0%</span></div>
+        <div class="stat-item"><span class="stat-lbl">综合战术评级</span><span id="stat-rank" class="stat-val rank-s">S</span></div>
+      </div>
+      <button id="btn-restart" class="btn-primary">重新部署关卡 // REDEPLOY</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
